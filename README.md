@@ -15,11 +15,19 @@ Run the script in your project directory:
 ```
 python code-prompt-builder.py
 ```
-For a self-run export of the script and README:
+Output: `"Done! Scanned '.', output written to '<folder>-code-prompt-YYYY-MM-DD_HHMM.txt' if no errors occurred."`
+
+For a self-run export of the script and README (from script directory):
 ```
 python code-prompt-builder.py --self-run
 ```
-Output will be written to a file like `code-prompt-builder-code-prompt-2025-02-24_1154.txt`. Check the console for errors or status messages.
+Output: `"Done! Self-run output written to '<folder>-code-prompt-YYYY-MM-DD_HHMM.txt' if no errors occurred."`
+
+To scan a specific target directory and output to a custom directory:
+```
+python code-prompt-builder.py --target-dir "../my_project" --output-dir "./exports"
+```
+Output: `"Done! Scanned '../my_project', output written to 'exports/my_project-code-prompt-YYYY-MM-DD_HHMM.txt' if no errors occurred."`
 
 ## Configuration
 The script uses `code-prompt-builder-config.json` to define which files to include or exclude. If missing, it creates one with defaults:
@@ -50,12 +58,12 @@ code-prompt-builder.py
 Note: Keep `code-prompt-builder-config.json` tracked in Git if you want to version-control your settings. You may want to track `code-prompt-builder.py` in your repo if distributing it, but ignore it locally if modified.
 
 ## Example Output
-Normal run:
+Normal run (scanning "../my_project", Windows):
 ```
-code-prompt-builder Code Export (2025-02-24 11:54)
+my_project Code Export (2025-02-24 12:16)
 ###
 
-[HTML] code-prompt-builder\src\index.html (20L, 512B, Mod: 2025-02-24 11:30)
+[HTML] my_project\src\index.html (20L, 512B, Mod: 2025-02-24 11:30)
 <html>
   <body><script src="js/script.js"></script></body>
 </html>
@@ -64,16 +72,46 @@ code-prompt-builder Code Export (2025-02-24 11:54)
 Files: 1
 END
 ```
-Self-run:
+Normal run (scanning "../my_project", Linux):
 ```
-code-prompt-builder Code Export (2025-02-24 11:54)
+my_project Code Export (2025-02-24 12:16)
+###
+
+[HTML] my_project/src/index.html (20L, 512B, Mod: 2025-02-24 11:30)
+<html>
+  <body><script src="js/script.js"></script></body>
+</html>
+###
+
+Files: 1
+END
+```
+Self-run (from script directory, Windows):
+```
+code-prompt-builder Code Export (2025-02-24 12:16)
 ###
 
 [PYTHON] code-prompt-builder\code-prompt-builder.py (152L, 7741B, Mod: 2025-02-24 11:51)
 <python code here>
 ###
 
-[MARKDOWN] code-prompt-builder\README.md (64L, 2336B, Mod: 2025-02-24 11:37)
+[MARKDOWN] code-prompt-builder\README.md (85L, 2802B, Mod: 2025-02-24 12:03)
+<readme content here>
+###
+
+Files: 2
+END
+```
+Self-run (from script directory, Linux):
+```
+code-prompt-builder Code Export (2025-02-24 12:16)
+###
+
+[PYTHON] code-prompt-builder/code-prompt-builder.py (152L, 7741B, Mod: 2025-02-24 11:51)
+<python code here>
+###
+
+[MARKDOWN] code-prompt-builder/README.md (85L, 2802B, Mod: 2025-02-24 12:03)
 <readme content here>
 ###
 
@@ -82,4 +120,4 @@ END
 ```
 
 ## Notes
-This tool is designed for development workflows and LLM co-design. It skips hidden directories (e.g., `.git`) and handles errors gracefully.
+This tool is designed for development workflows and LLM co-design. It skips hidden directories (e.g., `.git`) and handles errors gracefully. Paths use platform-native separators (`\` on Windows, `/` on Linux).

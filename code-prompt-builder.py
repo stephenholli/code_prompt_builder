@@ -41,10 +41,12 @@ def load_or_create_settings(settings_file="code-prompt-builder-config.json"):
         print(f"Error: Failed to load '{settings_file}' ({str(e)}). Using defaults.")
         return defaults
 
-def build_code_prompt(self_run=False):
-    folder_name = os.path.basename(os.getcwd())
+def build_code_prompt(self_run=False, target_dir=".", output_dir="."):
+    # Normalize paths and get folder name from target_dir
+    target_dir = os.path.abspath(target_dir)
+    folder_name = os.path.basename(target_dir)
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M")
-    output_file = f"{folder_name}-code-prompt-{timestamp}.txt"
+    output_file = os.path.join(output_dir, f"{folder_name}-code-prompt-{timestamp}.txt")
     
     try:
         settings = load_or_create_settings()
@@ -56,17 +58,21 @@ def build_code_prompt(self_run=False):
     file_count = 0
     
     try:
+        # Ensure output directory exists
+        os.makedirs(output_dir, exist_ok=True)
         with open(output_file, 'w', encoding='utf-8') as outfile:
             current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
             outfile.write(f"{folder_name} Code Export ({current_date})\n###\n")
             
             if self_run:
-                # Self-run mode: only process code-prompt-builder.py and README.md
+                # Self-run mode: process code-prompt-builder.py and README.md from script's directory
+                script_dir = os.path.dirname(os.path.abspath(__file__))
                 target_files = ["code-prompt-builder.py", "README.md"]
-                for file_path in target_files:
+                for file_name in target_files:
+                    file_path = os.path.join(script_dir, file_name)
                     if os.path.exists(file_path):
-                        display_path = f"{folder_name}\\{file_path}"
-                        ext = file_path.lower().split('.')[-1]
+                        display_path = f"{folder_name}\\{file_name}"
+                        ext = file_name.lower().split('.')[-1]
                         file_type = {'html': 'HTML', 'css': 'CSS', 'js': 'JS', 'py': 'PYTHON', 'md': 'MARKDOWN'}.get(ext, 'Unknown')
                         
                         try:
@@ -87,11 +93,11 @@ def build_code_prompt(self_run=False):
                         except (OSError, ValueError) as e:
                             errors.append(f"{file_path}: Failed to process ({str(e)}).")
             else:
-                # Normal mode: process based on settings
+                # Normal mode: process based on settings in target_dir
                 extensions = tuple(settings["extensions"])
                 exclude_files = set(settings["exclude_files"])
                 
-                for root, dirs, files in os.walk('.'):
+                for root, dirs, files in os.walk(target_dir):
                     dirs[:] = [d for d in dirs if not d.startswith('.')]
                     try:
                         project_files = sorted([
@@ -106,7 +112,9 @@ def build_code_prompt(self_run=False):
                     
                     for filename in project_files:
                         file_path = os.path.join(root, filename)
-                        display_path = f"{folder_name}{file_path[1:]}"
+                        # Display path relative to target_dir root
+                        relative_path = os.path.relpath(file_path, target_dir)
+                        display_path = f"{folder_name}\\{relative_path}"
                         file_count += 1
                         ext = filename.lower().split('.')[-1]
                         file_type = {'html': 'HTML', 'css': 'CSS', 'js': 'JS', 'py': 'PYTHON', 'md': 'MARKDOWN'}.get(ext, 'Unknown')
@@ -144,9 +152,18 @@ def build_code_prompt(self_run=False):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build a code prompt from project files.")
-    parser.add_argument("--self-run", action="store_true", help="Export only code-prompt-builder.py and README.md, ignoring filters.")
+    parser.add_argument("--self-run", action="store_true", help="Export only code-prompt-builder.py and README.md from script directory, ignoring filters.")
+    parser.add_argument("--target-dir", default=".", help="Directory to scan for code files (default: current directory)")
+    parser.add_argument("--output-dir", default=".", help="Directory to save the output file (default: script execution directory)")
     args = parser.parse_args()
     
     print("Building code prompt...")
-    build_code_prompt(self_run=args.self_run)
-    print("Done! Check the timestamped '<folder>-code-prompt-YYYY-MM-DD_HHMM.txt' file if no errors occurred.")
+    build_code_prompt(self_run=args.self_run, target_dir=args.target_dir, output_dir=args.output_dir)
+    # Use variables already defined in build_code_prompt
+    folder_name = os.path.basename(os.path.abspath(args.target_dir))
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M")
+    output_file = os.path.join(args.output_dir, f"{folder_name}-code-prompt-{timestamp}.txt")
+    if args.self_run:
+        print(f"Done! Self-run output written to '{output_file}' if no errors occurred.")
+    else:
+        print(f"Done! Scanned '{args.target_dir}', output written to '{output_file}' if no errors occurred.")
