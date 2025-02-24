@@ -41,9 +41,10 @@ def load_or_create_settings(settings_file="code-prompt-builder-config.json"):
         return defaults
 
 def build_code_prompt():
-    # Generate timestamped filename
+    # Get current folder name and timestamp
+    folder_name = os.path.basename(os.getcwd())
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M")
-    output_file = f"code_prompt_{timestamp}.txt"
+    output_file = f"{folder_name}-code-prompt-{timestamp}.txt"
     
     try:
         settings = load_or_create_settings()
@@ -59,7 +60,7 @@ def build_code_prompt():
     try:
         with open(output_file, 'w', encoding='utf-8') as outfile:
             current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
-            outfile.write(f"Code Prompt ({current_date}) for dev & LLM\n###\n")
+            outfile.write(f"{folder_name} Code Export ({current_date})\n###\n")
             
             for root, dirs, files in os.walk('.'):
                 dirs[:] = [d for d in dirs if not d.startswith('.')]
@@ -76,6 +77,8 @@ def build_code_prompt():
                 
                 for filename in project_files:
                     file_path = os.path.join(root, filename)
+                    # Combine folder name with relative path, removing leading '.'
+                    display_path = f"{folder_name}{file_path[1:]}"
                     file_count += 1
                     ext = filename.lower().split('.')[-1]
                     file_type = {'html': 'HTML', 'css': 'CSS', 'js': 'JS', 'py': 'PYTHON'}.get(ext, 'Unknown')
@@ -87,7 +90,7 @@ def build_code_prompt():
                             file_size = os.path.getsize(file_path)
                         
                         mod_time = datetime.fromtimestamp(os.path.getmtime(file_path)).strftime("%Y-%m-%d %H:%M")
-                        outfile.write(f"[{file_type}] {file_path} ({line_count}L, {file_size}B, Mod: {mod_time})\n")
+                        outfile.write(f"[{file_type}] {display_path} ({line_count}L, {file_size}B, Mod: {mod_time})\n")
                         outfile.write(content)
                         outfile.write("\n###\n")
                     except PermissionError:
@@ -114,4 +117,4 @@ def build_code_prompt():
 if __name__ == "__main__":
     print("Building code prompt...")
     build_code_prompt()
-    print("Done! Check the timestamped 'code_prompt_YYYY-MM-DD_HHMM.txt' file if no errors occurred.")
+    print("Done! Check the timestamped '<folder>-code-prompt-YYYY-MM-DD_HHMM.txt' file if no errors occurred.")
