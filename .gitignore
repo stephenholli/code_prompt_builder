@@ -6,3 +6,5 @@ code-prompt-builder.py
 
 # Optional: Uncomment to ignore config file after initial creation
 code-prompt-builder-config.json
+#pycache
+__pycache__/

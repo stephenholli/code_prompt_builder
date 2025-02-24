@@ -3,10 +3,10 @@ import json
 from datetime import datetime
 import argparse
 
-def load_or_create_settings(settings_file="code-prompt-builder-config.json"):
+def load_or_create_settings(settings_file="code_prompt_builder_config.json"):
     defaults = {
         "extensions": [".html", ".css", ".js", ".py", ".md"],
-        "exclude_files": ["code-prompt-builder.py"]
+        "exclude_files": ["code_prompt_builder.py"]
     }
     
     if not os.path.exists(settings_file):
@@ -65,13 +65,13 @@ def build_code_prompt(self_run=False, target_dir=".", output_dir="."):
             outfile.write(f"{folder_name} Code Export ({current_date})\n###\n")
             
             if self_run:
-                # Self-run mode: process code-prompt-builder.py and README.md from script's directory
+                # Self-run mode: process code_prompt_builder.py and README.md from script's directory
                 script_dir = os.path.dirname(os.path.abspath(__file__))
-                target_files = ["code-prompt-builder.py", "README.md"]
+                target_files = ["code_prompt_builder.py", "README.md"]
                 for file_name in target_files:
                     file_path = os.path.join(script_dir, file_name)
                     if os.path.exists(file_path):
-                        display_path = f"{folder_name}\\{file_name}"
+                        display_path = os.path.join(folder_name, file_name)
                         ext = file_name.lower().split('.')[-1]
                         file_type = {'html': 'HTML', 'css': 'CSS', 'js': 'JS', 'py': 'PYTHON', 'md': 'MARKDOWN'}.get(ext, 'Unknown')
                         
@@ -114,7 +114,7 @@ def build_code_prompt(self_run=False, target_dir=".", output_dir="."):
                         file_path = os.path.join(root, filename)
                         # Display path relative to target_dir root
                         relative_path = os.path.relpath(file_path, target_dir)
-                        display_path = f"{folder_name}\\{relative_path}"
+                        display_path = os.path.join(folder_name, relative_path)
                         file_count += 1
                         ext = filename.lower().split('.')[-1]
                         file_type = {'html': 'HTML', 'css': 'CSS', 'js': 'JS', 'py': 'PYTHON', 'md': 'MARKDOWN'}.get(ext, 'Unknown')
@@ -152,7 +152,7 @@ def build_code_prompt(self_run=False, target_dir=".", output_dir="."):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build a code prompt from project files.")
-    parser.add_argument("--self-run", action="store_true", help="Export only code-prompt-builder.py and README.md from script directory, ignoring filters.")
+    parser.add_argument("--self-run", action="store_true", help="Export only code_prompt_builder.py and README.md from script directory, ignoring filters.")
     parser.add_argument("--target-dir", default=".", help="Directory to scan for code files (default: current directory)")
     parser.add_argument("--output-dir", default=".", help="Directory to save the output file (default: script execution directory)")
     args = parser.parse_args()
