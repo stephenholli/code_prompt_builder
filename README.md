@@ -1,6 +1,6 @@
 # Code Prompt Builder
 
-A Python script to build a consolidated code prompt from development files (e.g., HTML, CSS, JS, Python) for LLM analysis or project review.
+A Python script to build a consolidated code prompt from development files (e.g., HTML, CSS, JS, Python, Markdown) for LLM analysis or project review.
 
 ## Features
 * Collects files based on configurable extensions from the current directory and subdirectories.
@@ -15,13 +15,17 @@ Run the script in your project directory:
 ```
 python code-prompt-builder.py
 ```
-Output will be written to a file like `prompt-builder-code-prompt-2025-02-23_1845.txt`. Check the console for errors or status messages.
+For a self-run export of the script and README:
+```
+python code-prompt-builder.py --self-run
+```
+Output will be written to a file like `code-prompt-builder-code-prompt-2025-02-24_1154.txt`. Check the console for errors or status messages.
 
 ## Configuration
 The script uses `code-prompt-builder-config.json` to define which files to include or exclude. If missing, it creates one with defaults:
 ```
 {
-    "extensions": [".html", ".css", ".js", ".py"],
+    "extensions": [".html", ".css", ".js", ".py", ".md"],
     "exclude_files": ["code-prompt-builder.py"]
 }
 ```
@@ -46,17 +50,34 @@ code-prompt-builder.py
 Note: Keep `code-prompt-builder-config.json` tracked in Git if you want to version-control your settings. You may want to track `code-prompt-builder.py` in your repo if distributing it, but ignore it locally if modified.
 
 ## Example Output
+Normal run:
 ```
-prompt-builder Code Export (2025-02-23 18:45)
+code-prompt-builder Code Export (2025-02-24 11:54)
 ###
 
-[HTML] prompt-builder\src\index.html (20L, 512B, Mod: 2025-02-23 14:30)
+[HTML] code-prompt-builder\src\index.html (20L, 512B, Mod: 2025-02-24 11:30)
 <html>
   <body><script src="js/script.js"></script></body>
 </html>
 ###
 
 Files: 1
+END
+```
+Self-run:
+```
+code-prompt-builder Code Export (2025-02-24 11:54)
+###
+
+[PYTHON] code-prompt-builder\code-prompt-builder.py (152L, 7741B, Mod: 2025-02-24 11:51)
+<python code here>
+###
+
+[MARKDOWN] code-prompt-builder\README.md (64L, 2336B, Mod: 2025-02-24 11:37)
+<readme content here>
+###
+
+Files: 2
 END
 ```
 
