@@ -3,7 +3,11 @@ import json
 from datetime import datetime
 import argparse
 
-def load_or_create_settings(settings_file="code_prompt_builder_config.json"):
+def load_or_create_settings():
+    # Define the settings file path relative to the script's directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    settings_file = os.path.join(script_dir, "code_prompt_builder_config.json")
+    
     defaults = {
         "extensions": [".html", ".css", ".js", ".py", ".md"],
         "exclude_files": ["code_prompt_builder.py"]
