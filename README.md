@@ -30,7 +30,7 @@ python code_prompt_builder.py --target-dir "../my_project" --output-dir "./expor
 Output: `"Done! Scanned '../my_project', output written to 'exports/my_project-code-prompt-YYYY-MM-DD_HHMM.txt' if no errors occurred."`
 
 ## Configuration
-The script uses `code_prompt_builder_config.json` to define which files to include or exclude. If missing, it creates one with defaults:
+The script uses a config file located in the same directory as `code_prompt_builder.py` (e.g., `D:\code_prompt_builder\code_prompt_builder_config.json` if the script is at `D:\code_prompt_builder\`). It defines which files to include or exclude. If missing, it creates one with defaults:
 ```
 {
     "extensions": [".html", ".css", ".js", ".py", ".md"],
