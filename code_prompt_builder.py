@@ -2,7 +2,6 @@ import os
 import json
 from datetime import datetime
 import argparse
-import re
 
 def format_file_size(size_in_bytes):
     """
