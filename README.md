@@ -9,6 +9,7 @@ A Python script to build a consolidated code prompt from development files (e.g.
 * Generates a timestamped `<folder>-code-prompt-YYYY-MM-DD_HHMM.txt` with token-efficient formatting for LLM prompts.
 * Creates a default `code_prompt_builder_config.json` if none exists.
 * Robust error handling for permissions, encoding, and file system issues.
+* Ignores specified directories by default (e.g., `.git`, `.venv`, `node_modules`).
 
 ## Usage
 Run the script in your project directory:
@@ -28,10 +29,11 @@ The script uses a config file located in the same directory as `code_prompt_buil
 ```
 {
     "extensions": [".html", ".css", ".js", ".py", ".md", ".json"],
-    "exclude_files": [""]
+    "exclude_files": [""],
+    "ignore_dirs": [".git", ".venv", "venv", "node_modules", "__pycache__", ".idea", ".vscode", "dist", "build", "env", ".pytest_cache"]
 }
 ```
-Edit this file to customize extensions (e.g., add ".json") or exclude files (e.g., "test.py").
+Edit this file to customize extensions (e.g., add ".json"), exclude files (e.g., "test.py"), or ignore directories (e.g., "temp").
 
 ## Requirements
 * Python 3.x
@@ -50,68 +52,6 @@ code_prompt_builder.py
 # code_prompt_builder_config.json
 ```
 Note: Keep `code_prompt_builder_config.json` tracked in Git if you want to version-control your settings. You may want to track `code_prompt_builder.py` in your repo if distributing it, but ignore it locally if modified.
-
-## Example Output
-Normal run (scanning "../my_project", Windows):
-```
-my_project Code Export (2025-02-24 14:07)
-###
-
-[HTML] my_project\src\index.html (20L, 512B, Mod: 2025-02-24 11:30)
-<html>
-  <body><script src="js/script.js"></script></body>
-</html>
-###
-
-Files: 1
-END
-```
-Normal run (scanning "../my_project", Linux):
-```
-my_project Code Export (2025-02-24 14:07)
-###
-
-[HTML] my_project/src/index.html (20L, 512B, Mod: 2025-02-24 11:30)
-<html>
-  <body><script src="js/script.js"></script></body>
-</html>
-###
-
-Files: 1
-END
-```
-Self-run (from script directory, Windows):
-```
-code_prompt_builder Code Export (2025-02-24 14:07)
-###
-
-[PYTHON] code_prompt_builder\code_prompt_builder.py (169L, 9065B, Mod: 2025-02-24 12:35)
-<python code here>
-###
-
-[MARKDOWN] code_prompt_builder\README.md (123L, 3958B, Mod: 2025-02-24 12:35)
-<readme content here>
-###
-
-Files: 2
-END
-```
-Self-run (from script directory, Linux):
-```
-code_prompt_builder Code Export (2025-02-24 14:07)
-###
-
-[PYTHON] code_prompt_builder/code_prompt_builder.py (169L, 9065B, Mod: 2025-02-24 12:35)
-<python code here>
-###
-
-[MARKDOWN] code_prompt_builder/README.md (123L, 3958B, Mod: 2025-02-24 12:35)
-<readme content here>
-###
-
-Files: 2
-END
-```
 
 ## Dev Notes TO DO
 * Review arguments vs config file. 
