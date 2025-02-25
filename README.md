@@ -8,8 +8,8 @@ A Python script to build a consolidated code prompt from development files (e.g.
 * Outputs file contents with metadata (line count, size, last modified time).
 * Generates a timestamped `<folder>-code-prompt-YYYY-MM-DD_HHMM.txt` with token-efficient formatting for LLM prompts.
 * Creates a default `code_prompt_builder_config.json` if none exists.
+* Command-line arguments that override or extend configuration file settings.
 * Robust error handling for permissions, encoding, and file system issues.
-* Ignores specified directories by default (e.g., `.git`, `.venv`, `node_modules`).
 
 ## Usage
 Run the script in your project directory:
@@ -24,16 +24,46 @@ python code_prompt_builder.py --target-dir "../my_project" --output-dir "./expor
 ```
 Output: `"Done! Scanned '../my_project', output written to 'exports/my_project-code-prompt-YYYY-MM-DD_HHMM.txt' if no errors occurred."`
 
+## Command-line Arguments
+The script offers several command-line arguments for flexible usage:
+
+- `--target-dir <path>`: Directory to scan for code files (default: current directory)
+- `--output-dir <path>`: Directory to save the output file (default: current directory)
+- `--exclude-dir <dirname>`: Additional directory to exclude (can be used multiple times)
+- `--exclude-file <filename>`: Additional file to exclude (can be used multiple times)
+- `--extensions <ext1> <ext2> ...`: File extensions to include (overrides config file)
+- `--no-default-excludes`: Ignore default exclude dirs/files from config and only use command line excludes
+
+Examples:
+```
+# Process only HTML and CSS files
+python code_prompt_builder.py --extensions .html .css
+
+# Add a specific directory to exclude list
+python code_prompt_builder.py --exclude-dir "test_data"
+
+# Use only command-line exclusions, ignoring defaults
+python code_prompt_builder.py --no-default-excludes --exclude-dir "temp_files"
+```
+
 ## Configuration
 The script uses a config file located in the same directory as `code_prompt_builder.py` (e.g., `D:\code_prompt_builder\code_prompt_builder_config.json` if the script is at `D:\code_prompt_builder\`). It defines which files to include or exclude. If missing, it creates one with defaults:
-```
+```json
 {
     "extensions": [".html", ".css", ".js", ".py", ".md", ".json"],
-    "exclude_files": [""],
-    "ignore_dirs": [".git", ".venv", "venv", "node_modules", "__pycache__", ".idea", ".vscode", "dist", "build", "env", ".pytest_cache"]
+    "exclude_files": [],
+    "exclude_dirs": [".git", ".venv", "venv", "node_modules", "__pycache__", 
+                    ".idea", ".vscode", "dist", "build", "env", ".pytest_cache"]
 }
 ```
-Edit this file to customize extensions (e.g., add ".json"), exclude files (e.g., "test.py"), or ignore directories (e.g., "temp").
+
+### Configuration Priority
+The script prioritizes settings in the following order:
+1. Command-line arguments override config file settings for specific options (e.g., `--extensions`)
+2. Command-line exclusions (files/directories) are added to config file exclusions by default
+3. When using `--no-default-excludes`, only command-line exclusions are used
+
+This approach ensures that important exclusions (like `.git`) are maintained by default while allowing for flexibility.
 
 ## Requirements
 * Python 3.x
@@ -52,7 +82,3 @@ code_prompt_builder.py
 # code_prompt_builder_config.json
 ```
 Note: Keep `code_prompt_builder_config.json` tracked in Git if you want to version-control your settings. You may want to track `code_prompt_builder.py` in your repo if distributing it, but ignore it locally if modified.
-
-## Dev Notes TO DO
-* Review arguments vs config file. 
-* Synchronize and refine argument variables.
