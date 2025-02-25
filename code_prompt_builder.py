@@ -3,47 +3,6 @@ import json
 from datetime import datetime
 import argparse
 
-def get_file_type(filename):
-    """
-    Get the file type identifier based on file extension.
-    Returns a standardized identifier suitable for display in the prompt.
-    """
-    # Handle files without extensions (like Dockerfile)
-    if '.' not in filename:
-        lower_name = filename.lower()
-        if lower_name in ['dockerfile', 'makefile']:
-            return lower_name.upper()
-        return 'UNKNOWN'
-        
-    # Get extension and convert to lowercase
-    ext = filename.lower().split('.')[-1]
-    
-    # Common file types - focused on the most frequently used
-    file_types = {
-        # Web Development
-        'html': 'HTML', 'htm': 'HTML',
-        'css': 'CSS', 'scss': 'SCSS', 'sass': 'SASS',
-        'js': 'JAVASCRIPT', 'jsx': 'JSX', 'ts': 'TYPESCRIPT', 'tsx': 'TSX',
-        
-        # Programming Languages
-        'py': 'PYTHON', 'pyw': 'PYTHON',
-        'java': 'JAVA', 'kt': 'KOTLIN',
-        'c': 'C', 'h': 'C_HEADER', 'cpp': 'CPP', 'hpp': 'CPP_HEADER',
-        'cs': 'CSHARP', 'go': 'GO', 'rs': 'RUST', 'rb': 'RUBY', 'php': 'PHP',
-        
-        # Data Formats
-        'json': 'JSON', 'yaml': 'YAML', 'yml': 'YAML', 'xml': 'XML', 'csv': 'CSV',
-        
-        # Documentation
-        'md': 'MARKDOWN', 'txt': 'TEXT',
-        
-        # Shell/Scripts
-        'sh': 'SHELL', 'bash': 'BASH', 'bat': 'BATCH', 'ps1': 'POWERSHELL'
-    }
-    
-    # Return the mapped type or uppercase extension if not found
-    return file_types.get(ext, ext.upper())
-
 def format_file_size(size_in_bytes):
     """
     Format file size from bytes to human-readable format (KB, MB).
@@ -237,9 +196,6 @@ def build_code_prompt(target_dir=".", output_dir=".", config=None):
                     
                     file_count += 1
                     
-                    # Use our file type detection function
-                    file_type = get_file_type(filename)
-                    
                     try:
                         with open(file_path, 'r', encoding='utf-8') as infile:
                             content = infile.read()
@@ -252,7 +208,8 @@ def build_code_prompt(target_dir=".", output_dir=".", config=None):
                         formatted_size = format_file_size(file_size)
                         
                         mod_time = datetime.fromtimestamp(os.path.getmtime(file_path)).strftime("%Y-%m-%d %H:%M")
-                        outfile.write(f"[{file_type}] {display_path} ({line_count}L, {formatted_size}, Mod: {mod_time})\n")
+                        # Removed file type prefix, just display the path and metadata
+                        outfile.write(f"{display_path} ({line_count}L, {formatted_size}, Mod: {mod_time})\n")
                         outfile.write(content)
                         outfile.write("\n###\n")
                     except PermissionError:
