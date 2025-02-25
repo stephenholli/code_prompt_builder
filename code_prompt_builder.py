@@ -60,7 +60,7 @@ def build_code_prompt(target_dir=".", output_dir=".", ignore_dirs=None, ignore_f
         settings = load_or_create_settings()
     except Exception as e:
         print(f"Critical error in settings: {str(e)}. Exiting.")
-        return
+        return False, 0, [f"Critical error in settings: {str(e)}"], None
     
     # Initialize ignore lists with defaults from settings, then add command-line args
     ignore_dirs_set = set(settings["ignore_dirs"])
@@ -129,15 +129,17 @@ def build_code_prompt(target_dir=".", output_dir=".", ignore_dirs=None, ignore_f
             if errors:
                 outfile.write("\nErrors:\n" + "\n".join([f"- {e}" for e in errors]))
             outfile.write("\nEND\n")
+        
+        return True, file_count, errors, output_file
     except PermissionError:
         print(f"Error: No permission to write '{output_file}'. Aborting.")
-        return
+        return False, file_count, errors + [f"No permission to write '{output_file}'"], None
     except OSError as e:
         print(f"Error: Failed to write '{output_file}' ({str(e)}). Aborting.")
-        return
+        return False, file_count, errors + [f"Failed to write '{output_file}' ({str(e)})"], None
     except Exception as e:
         print(f"Critical error during file collection: {str(e)}. Aborting.")
-        return
+        return False, file_count, errors + [f"Critical error: {str(e)}"], None
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build a code prompt from project files.")
@@ -150,12 +152,19 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     print("Building code prompt...")
-    build_code_prompt(target_dir=args.target_dir, 
-                     output_dir=args.output_dir, 
-                     ignore_dirs=args.ignore_dirs,
-                     ignore_files=args.ignore_files)
+    success, file_count, errors, output_file = build_code_prompt(
+        target_dir=args.target_dir, 
+        output_dir=args.output_dir, 
+        ignore_dirs=args.ignore_dirs,
+        ignore_files=args.ignore_files
+    )
     
-    folder_name = os.path.basename(os.path.abspath(args.target_dir))
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M")
-    output_file = os.path.join(args.output_dir, f"{folder_name}-code-prompt-{timestamp}.txt")
-    print(f"Done! Scanned '{args.target_dir}', output written to '{output_file}' if no errors occurred.")
+    if success:
+        if not errors:
+            print(f"Done! Successfully processed {file_count} files from '{args.target_dir}'.")
+            print(f"Output written to '{output_file}'.")
+        else:
+            print(f"Completed with warnings! Processed {file_count} files from '{args.target_dir}' with {len(errors)} errors.")
+            print(f"Output written to '{output_file}'. See file for error details.")
+    else:
+        print(f"Failed to complete the code prompt generation. Encountered {len(errors)} errors.")
