@@ -17,12 +17,6 @@ python code_prompt_builder.py
 ```
 Output: `"Done! Scanned '.', output written to '<folder>-code-prompt-YYYY-MM-DD_HHMM.txt' if no errors occurred."`
 
-For a self-run export of the script and README (from script directory):
-```
-python code_prompt_builder.py --self-run
-```
-Output: `"Done! Self-run output written to '<folder>-code-prompt-YYYY-MM-DD_HHMM.txt' if no errors occurred."`
-
 To scan a specific target directory and output to a custom directory:
 ```
 python code_prompt_builder.py --target-dir "../my_project" --output-dir "./exports"
@@ -34,10 +28,10 @@ The script uses a config file located in the same directory as `code_prompt_buil
 ```
 {
     "extensions": [".html", ".css", ".js", ".py", ".md", ".json"],
-    "exclude_files": ["code_prompt_builder.py"]
+    "exclude_files": [""]
 }
 ```
-Edit this file to customize extensions (e.g., add ".json") or exclude additional files (e.g., "test.py").
+Edit this file to customize extensions (e.g., add ".json") or exclude files (e.g., "test.py").
 
 ## Requirements
 * Python 3.x
@@ -119,5 +113,6 @@ Files: 2
 END
 ```
 
-## Notes
-This tool is designed for development workflows and LLM co-design. It skips hidden directories (e.g., `.git`) and handles errors gracefully. Paths use platform-native separators (`\` on Windows, `/` on Linux).
+## Dev Notes TO DO
+* Review arguments vs config file. 
+* Synchronize and refine argument variables.
