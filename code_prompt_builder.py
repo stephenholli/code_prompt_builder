@@ -248,6 +248,9 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
+    # Get absolute path for target directory
+    target_dir_abs = os.path.abspath(args.target_dir)
+    
     # Load config and merge with command line arguments
     config = load_config()
     merged_config = merge_config_with_args(config, args)
@@ -262,10 +265,10 @@ if __name__ == "__main__":
     if success:
         formatted_size = format_file_size(total_size)
         if not errors:
-            print(f"Done! Successfully processed {file_count} files with {total_lines} lines ({formatted_size}) from '{args.target_dir}'.")
-            print(f"Output written to '{output_file}'.")
+            print(f"Done! Successfully processed {file_count} files with {total_lines} lines ({formatted_size}) from '{target_dir_abs}'.")
+            print(f"Output written to '{os.path.abspath(output_file)}'.")
         else:
-            print(f"Completed with warnings! Processed {file_count} files with {total_lines} lines ({formatted_size}) from '{args.target_dir}'.")
-            print(f"Encountered {len(errors)} errors. See '{output_file}' for details.")
+            print(f"Completed with warnings! Processed {file_count} files with {total_lines} lines ({formatted_size}) from '{target_dir_abs}'.")
+            print(f"Encountered {len(errors)} errors. See '{os.path.abspath(output_file)}' for details.")
     else:
         print(f"Failed to complete the code prompt generation. Encountered {len(errors)} errors.")
