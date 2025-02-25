@@ -1,6 +1,6 @@
 # Code Prompt Builder
 
-A Python script to build a consolidated code prompt from development files (e.g., HTML, CSS, JS, Python, Markdown) for LLM analysis or project review.
+A Python script to build a consolidated code prompt from development files (e.g., HTML, CSS, JS, Python, Markdown, JSON) for LLM analysis or project review.
 
 ## Features
 * Collects files based on configurable extensions from the current directory and subdirectories.
@@ -33,7 +33,7 @@ Output: `"Done! Scanned '../my_project', output written to 'exports/my_project-c
 The script uses a config file located in the same directory as `code_prompt_builder.py` (e.g., `D:\code_prompt_builder\code_prompt_builder_config.json` if the script is at `D:\code_prompt_builder\`). It defines which files to include or exclude. If missing, it creates one with defaults:
 ```
 {
-    "extensions": [".html", ".css", ".js", ".py", ".md"],
+    "extensions": [".html", ".css", ".js", ".py", ".md", ".json"],
     "exclude_files": ["code_prompt_builder.py"]
 }
 ```
