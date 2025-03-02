@@ -1,74 +1,69 @@
 # Code Prompt Builder
 
-A Python script to build a consolidated code prompt from development files (e.g., HTML, CSS, JS, Python, Markdown, JSON) for LLM analysis or project review.
+A Python script that builds consolidated code prompts from your development files (HTML, CSS, JS, Python, Markdown, JSON, etc.) for LLM analysis and project reviews.
 
 ## Features
-* Collects files based on configurable extensions from the current directory and subdirectories.
-* Excludes minified files and user-defined exclusions.
-* Outputs file contents with metadata (line count, size, last modified time).
-* Generates a timestamped `<folder>-code-prompt-YYYY-MM-DD_HHMM.txt` with token-efficient formatting for LLM prompts.
-* Creates a default `code_prompt_builder_config.json` if none exists.
-* Command-line arguments that override or extend configuration file settings.
-* Robust error handling for permissions, encoding, and file system issues.
-* **NEW**: Project summary generation with file type statistics, directory structure, and largest files.
-* **NEW**: Focus on specific directories to process only relevant parts of a codebase.
-* **NEW**: Automatic token counting for better LLM context management.
-* **NEW**: File chunking for large projects that exceed LLM token limits.
+* Creates a single text file containing all your project's code with helpful metadata
+* Generates a comprehensive project summary with file statistics and directory structure
+* Automatically excludes minified files and common non-code directories (.git, node_modules, etc.)
+* Supports custom file inclusion/exclusion patterns and directory focusing
+* Estimates token count for LLM context management
+* Splits large codebases into manageable chunks for LLM token limits
+* Handles file path variations for exclusions (e.g., ".\file.txt" and ".\folder\file.txt")
+* Provides abbreviated command options for faster workflow
 
 ## Usage
 Run the script in your project directory:
-```
+```bash
 python code_prompt_builder.py
 ```
-Output: `"Done! Successfully processed X files with Y lines, Z estimated tokens (size) from 'path'. Output written to '<folder>-code-prompt-YYYY-MM-DD_HHMM.txt'."`
 
-To scan a specific target directory and output to a custom directory:
-```
+The output will be saved as: `<folder>-code-prompt-YYYY-MM-DD_HHMM.txt`
+
+To analyze a specific project and save to a custom location:
+```bash
 python code_prompt_builder.py --target-dir "../my_project" --output-dir "./exports"
 ```
 
 ## Command-line Arguments
-The script offers several command-line arguments for flexible usage:
 
 ### Basic Options
-- `--target-dir <path>`: Directory to scan for code files (default: current directory)
-- `--output-dir <path>`: Directory to save the output file (default: current directory)
-- `--extensions <ext1> <ext2> ...`: File extensions to include (overrides config file)
+- `--target-dir <path>` or `-t <path>`: Directory to scan for code files (default: current directory)
+- `--output-dir <path>` or `-o <path>`: Directory to save the output file (default: current directory)
+- `--extensions <ext1> <ext2> ...`: File extensions to include (default: .html, .css, .js, .py, .md, .json)
 
 ### Inclusion/Exclusion Options
-- `--exclude-dir <dirname>`: Additional directory to exclude (can be used multiple times)
-- `--exclude-file <filename>`: Additional file to exclude (can be used multiple times)
-- `--no-default-excludes`: Ignore default exclude dirs/files from config and only use command line excludes
-- `--focus-dir <dirname>`: Only process files in these directories (can be used multiple times)
+- `--exclude-dir <dirname>` or `-d <dirname>`: Additional directory to exclude (can be used multiple times)
+- `--exclude-file <filename>` or `-e <filename>`: Additional file to exclude (can be used multiple times)
+- `--no-default-excludes`: Ignore default exclude dirs/files and only use command line excludes
+- `--focus-dir <dirname>` or `-f <dirname>`: Only process files in these directories and their subdirectories
 
 ### Output Formatting Options
-- `--chunk-size <size>`: Maximum token size for each output chunk (approximately)
-- `--no-summary`: Disable project summary generation (enabled by default)
+- `--chunk-size <size>` or `-c <size>`: Maximum token size for each output chunk (default: no chunking)
+- `--no-summary`: Disable project summary generation (summary is enabled by default)
 
-## Examples
+## Common Examples
 
 ```bash
 # Process only HTML and CSS files
 python code_prompt_builder.py --extensions .html .css
 
-# Add a specific directory to exclude list
-python code_prompt_builder.py --exclude-dir "test_data"
+# Exclude specific directories from analysis
+python code_prompt_builder.py --exclude-dir "test_data" --exclude-dir "legacy_code"
 
-# Only focus on a specific directory and its subdirectories
-python code_prompt_builder.py --focus-dir src/components
+# Focus only on specific parts of a codebase
+python code_prompt_builder.py --focus-dir "src/components" --focus-dir "src/utils"
 
-# Generate chunks with approximately 4000 tokens each
+# Generate smaller chunks for large projects (approx. 4000 tokens each)
 python code_prompt_builder.py --chunk-size 4000
 
-# Disable the project summary
-python code_prompt_builder.py --no-summary
-
-# Use only command-line exclusions, ignoring defaults
-python code_prompt_builder.py --no-default-excludes --exclude-dir "temp_files"
+# Use abbreviated options
+python code_prompt_builder.py -t "../project" -o "./output" -d "node_modules" -e "config.json"
 ```
 
-## Configuration
-The script uses a config file located in the same directory as `code_prompt_builder.py`. It defines which files to include or exclude. If missing, it creates one with defaults:
+## Default Configuration
+The script uses a config file (`code_prompt_builder_config.json`) located in the same directory as the script. If missing, it creates one with these defaults:
+
 ```json
 {
     "extensions": [".html", ".css", ".js", ".py", ".md", ".json"],
@@ -82,48 +77,43 @@ The script uses a config file located in the same directory as `code_prompt_buil
 ```
 
 ### Configuration Priority
-The script prioritizes settings in the following order:
-1. Command-line arguments override config file settings for specific options (e.g., `--extensions`)
-2. Command-line exclusions (files/directories) are added to config file exclusions by default
-3. When using `--no-default-excludes`, only command-line exclusions are used
-
-This approach ensures that important exclusions (like `.git`) are maintained by default while allowing for flexibility.
+1. Command-line arguments override config file settings
+2. Command-line exclusions are added to config file exclusions by default
+3. With `--no-default-excludes`, only command-line exclusions are used
 
 ## Project Summary
-By default, the script generates a comprehensive summary of your project at the beginning of the output file, including:
+The generated summary includes:
 
-* File counts, line counts, and sizes by file type
-* Token count estimation (useful for LLM context planning)
-* Directory structure with file distribution
-* Largest files by line count
-* Recently modified files
+* **Project Overview**: Total files, lines, size, and estimated token count
+* **Files by Type**: Breakdown of file extensions with counts, lines, and sizes
+* **Directory Structure**: Complete file hierarchy with details for each file
+* **File Details**: Each file's line count, size, and last modified date
 
-This summary provides valuable context for LLMs analyzing your codebase.
+## Output Format
+The generated file follows this structure:
+```
+<folder_name> Code Export (YYYY-MM-DD HH:MM)
+###
+[Project Summary]
+###
+<file_path> (<line_count>L, <file_size>, Mod: <modified_date>)
+[File Content]
+###
+<next_file>...
+```
 
 ## File Chunking
-For large projects that exceed LLM token limits, the script can automatically split output into multiple files:
+For large projects, use the `--chunk-size` option to split output into multiple files, each containing approximately the specified number of tokens:
 
 ```bash
 python code_prompt_builder.py --chunk-size 4000
 ```
 
-This will create multiple files (e.g., `project-code-prompt-date_part1.txt`, `project-code-prompt-date_part2.txt`) with appropriate overlaps at logical file boundaries. Each file will contain approximately the specified number of tokens.
+This creates files like `project-code-prompt-date_part1.txt`, `project-code-prompt-date_part2.txt`, etc.
 
 ## Requirements
 * Python 3.x
 * No external dependencies
 
-## Git Ignore
-Add these lines to your `.gitignore` to exclude files generated by or related to Code Prompt Builder:
-```
-# Generated output files from Code Prompt Builder
-*-code-prompt-*.txt
-
-# The script itself
-code_prompt_builder.py
-
-# Optional: Uncomment to ignore config file after initial creation
-# code_prompt_builder_config.json
-```
-
-Note: Keep `code_prompt_builder_config.json` tracked in Git if you want to version-control your settings. You may want to track `code_prompt_builder.py` in your repo if distributing it, but ignore it locally if modified.
+## To Do
+* Implement generation of report from a specific git branch

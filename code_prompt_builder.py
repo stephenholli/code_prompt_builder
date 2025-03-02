@@ -4,9 +4,7 @@ from datetime import datetime
 import argparse
 
 def format_file_size(size_in_bytes):
-    """
-    Format file size from bytes to human-readable format (KB, MB).
-    """
+    """Format file size from bytes to human-readable format (KB, MB)."""
     if size_in_bytes < 1024:
         return f"{size_in_bytes} bytes"
     elif size_in_bytes < 1024 * 1024:
@@ -15,16 +13,7 @@ def format_file_size(size_in_bytes):
         return f"{size_in_bytes / (1024 * 1024):.2f} MB"
 
 def is_binary_file(file_path, sample_size=1024):
-    """
-    Simple check if a file is binary by testing if it can be decoded as UTF-8.
-    
-    Args:
-        file_path: Path to the file to check
-        sample_size: Number of bytes to read for detection
-        
-    Returns:
-        bool: True if the file appears to be binary, False otherwise
-    """
+    """Check if a file is binary by testing UTF-8 decoding."""
     try:
         with open(file_path, 'rb') as f:
             sample = f.read(sample_size)
@@ -32,44 +21,32 @@ def is_binary_file(file_path, sample_size=1024):
             return False
         if b'\x00' in sample:
             return True
-        try:
-            sample.decode('utf-8')
-            return False
-        except UnicodeDecodeError:
-            return True
+        sample.decode('utf-8')
+        return False
     except IOError:
         return True
 
 def load_config():
-    """
-    Load config from file or create default if not exists.
-    Returns the config dictionary.
-    """
+    """Load config from file or create default if not exists."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
     config_file = os.path.join(script_dir, "code_prompt_builder_config.json")
-    
     defaults = {
         "extensions": [".html", ".css", ".js", ".py", ".md", ".json"],
         "exclude_files": [],
-        "exclude_dirs": [".git", ".venv", "venv", "node_modules", "__pycache__", 
+        "exclude_dirs": [".git", ".venv", "venv", "node_modules", "__pycache__",
                          ".idea", ".vscode", "dist", "build", "env", ".pytest_cache"],
         "focus_dirs": [],
         "chunk_size": None,
         "include_summary": True
     }
-    
     if not os.path.exists(config_file):
         try:
             with open(config_file, 'w', encoding='utf-8') as f:
                 json.dump(defaults, f, indent=4)
             print(f"Created default '{config_file}'.")
-        except PermissionError:
-            print(f"Error: No permission to create '{config_file}'. Using defaults.")
+        except (PermissionError, OSError) as e:
+            print(f"Error creating '{config_file}' ({str(e)}). Using defaults.")
             return defaults
-        except OSError as e:
-            print(f"Error: Failed to create '{config_file}' ({str(e)}). Using defaults.")
-            return defaults
-    
     try:
         with open(config_file, 'r', encoding='utf-8') as f:
             config = json.load(f)
@@ -80,137 +57,124 @@ def load_config():
                 if value is None and config[key] is not None:
                     pass
                 else:
-                    print(f"Warning: Config key '{key}' has incorrect type. Using default.")
+                    print(f"Warning: Config key '{key}' type mismatch. Using default.")
                     config[key] = value
         return config
-    except PermissionError:
-        print(f"Error: No permission to read '{config_file}'. Using defaults.")
-        return defaults
-    except json.JSONDecodeError:
-        print(f"Error: '{config_file}' is corrupted or invalid JSON. Using defaults.")
-        return defaults
-    except (OSError, ValueError) as e:
-        print(f"Error: Failed to load '{config_file}' ({str(e)}). Using defaults.")
+    except (json.JSONDecodeError, PermissionError, OSError) as e:
+        print(f"Error loading '{config_file}' ({str(e)}). Using defaults.")
         return defaults
 
 def merge_config_with_args(config, args):
-    """
-    Merge config with command line arguments, prioritizing command line arguments
-    while preserving defaults for exclusions.
-    """
+    """Merge config with command-line args, normalizing exclusion paths."""
     merged_config = config.copy()
-    
     if args.extensions:
         merged_config["extensions"] = args.extensions
+    exclude_files = config["exclude_files"]
     if args.exclude_files:
-        merged_config["exclude_files"] = list(set(merged_config["exclude_files"]) | set(args.exclude_files))
+        if args.no_default_excludes:
+            exclude_files = args.exclude_files
+        else:
+            exclude_files = list(set(exclude_files) | set(args.exclude_files))
+    merged_config["exclude_files"] = [os.path.normpath(f.lstrip('.\\' if os.sep == '\\' else './')) 
+                                     for f in exclude_files]
+    exclude_dirs = config["exclude_dirs"]
     if args.exclude_dirs:
-        merged_config["exclude_dirs"] = list(set(merged_config["exclude_dirs"]) | set(args.exclude_dirs))
+        if args.no_default_excludes:
+            exclude_dirs = args.exclude_dirs
+        else:
+            exclude_dirs = list(set(exclude_dirs) | set(args.exclude_dirs))
+    merged_config["exclude_dirs"] = exclude_dirs
     if args.focus_dirs:
-        merged_config["focus_dirs"] = list(set(merged_config.get("focus_dirs", [])) | set(args.focus_dirs))
+        merged_config["focus_dirs"] = list(set(config.get("focus_dirs", [])) | set(args.focus_dirs))
     if args.chunk_size is not None:
         merged_config["chunk_size"] = args.chunk_size
     if args.no_summary:
         merged_config["include_summary"] = False
-    
-    if args.no_default_excludes:
-        merged_config["exclude_files"] = list(set(args.exclude_files)) if args.exclude_files else []
-        merged_config["exclude_dirs"] = list(set(args.exclude_dirs)) if args.exclude_dirs else []
-    
     return merged_config
 
+def build_tree(file_stats, target_dir):
+    """Build a directory tree from file statistics."""
+    tree = {}
+    for relative_path, stats in file_stats.items():
+        if not isinstance(stats, dict):
+            print(f"Warning: Invalid stats for '{relative_path}': {stats}")
+            continue
+        parts = relative_path.split(os.sep)
+        current = tree
+        for part in parts[:-1]:
+            if part not in current:
+                current[part] = {}
+            current = current[part]
+        current[parts[-1]] = stats
+    return tree
+
+def generate_tree_lines(tree, prefix=""):
+    """Generate directory tree lines with file details."""
+    lines = []
+    sorted_keys = sorted(tree.keys())
+    for i, key in enumerate(sorted_keys):
+        is_last = i == len(sorted_keys) - 1
+        if isinstance(tree[key], dict) and 'lines' not in tree[key]:
+            # Directory: recurse into it
+            lines.append(f"{prefix}{'└── ' if is_last else '├── '}{key}/")
+            sub_prefix = prefix + ('    ' if is_last else '│   ')
+            sub_lines = generate_tree_lines(tree[key], sub_prefix)
+            lines.extend(sub_lines)
+        elif isinstance(tree[key], dict) and 'lines' in tree[key]:
+            # File: display stats
+            stats = tree[key]
+            formatted_size = format_file_size(stats['size'])
+            mod_time = stats['modified']
+            lines.append(f"{prefix}{'└── ' if is_last else '├── '}{key}: {stats['lines']} lines, "
+                         f"{formatted_size}, Mod: {mod_time}")
+        else:
+            # Error case
+            lines.append(f"{prefix}{'└── ' if is_last else '├── '}{key}: [Error: Invalid stats]")
+    return lines
+
 def generate_project_summary(file_stats, target_dir, total_size, total_tokens, binary_count):
-    """
-    Generate a project summary based on collected file statistics, including token count.
-    
-    Args:
-        file_stats: Dictionary mapping file paths to their statistics
-        target_dir: The root directory of the project
-        total_size: Total size of all files in bytes
-        total_tokens: Estimated total token count from code content
-        binary_count: Number of binary files skipped
-    
-    Returns:
-        String containing the project summary
-    """
+    """Generate a project summary with a detailed directory structure."""
     folder_name = os.path.basename(target_dir)
-    
+    summary = [f"## {folder_name} PROJECT SUMMARY", ""]
+    summary.append(f"Root Directory: {target_dir}")
+    summary.append(f"Total Files: {len(file_stats)}")
+    summary.append(f"Total Size: {format_file_size(total_size)}")
+    summary.append(f"Estimated Code Tokens: {total_tokens:,}")
+    if binary_count > 0:
+        summary.append(f"Binary Files Skipped: {binary_count}")
+    summary.append("")
+
     files_by_ext = {}
     for file_path, stats in file_stats.items():
+        if not isinstance(stats, dict):
+            continue
         ext = os.path.splitext(file_path)[1].lower() or "(no extension)"
         if ext not in files_by_ext:
             files_by_ext[ext] = []
         files_by_ext[ext].append((file_path, stats))
     
-    summary = [f"## {folder_name} PROJECT SUMMARY", ""]
-    summary.append(f"Root Directory: {target_dir}")
-    summary.append(f"Total Files: {len(file_stats)}")
-    summary.append(f"Total Size: {format_file_size(total_size)}")
-    summary.append(f"Estimated Code Tokens: {total_tokens:,}")  # Added token count
-    if binary_count > 0:
-        summary.append(f"Binary Files Skipped: {binary_count}")
-    summary.append("")
-    
     summary.append("### Files by Type")
     for ext, files in sorted(files_by_ext.items()):
         ext_total_lines = sum(stats['lines'] for _, stats in files)
         ext_total_size = sum(stats['size'] for _, stats in files)
-        summary.append(f"- {ext}: {len(files)} files, {ext_total_lines} lines, {format_file_size(ext_total_size)}")
+        summary.append(f"- {ext}: {len(files)} files, {ext_total_lines} lines, "
+                       f"{format_file_size(ext_total_size)}")
     
     summary.append("")
     summary.append("### Directory Structure")
-    
-    dirs = {}
-    for file_path, stats in file_stats.items():
-        dir_path = os.path.dirname(file_path)
-        if not dir_path:
-            dir_path = "."
-        if dir_path not in dirs:
-            dirs[dir_path] = []
-        dirs[dir_path].append((file_path, stats))
-    
-    sorted_dirs = sorted(dirs.items(), key=lambda x: len(x[1]), reverse=True)
-    for dir_path, files in sorted_dirs[:10]:
-        dir_total_lines = sum(stats['lines'] for _, stats in files)
-        summary.append(f"- {dir_path}: {len(files)} files, {dir_total_lines} lines")
-    
-    if len(sorted_dirs) > 10:
-        summary.append(f"  ... and {len(sorted_dirs) - 10} more directories")
-    
-    summary.append("")
-    summary.append("### Largest Files (by line count)")
-    largest_files = sorted(file_stats.items(), key=lambda x: x[1]['lines'], reverse=True)[:10]
-    for file_path, stats in largest_files:
-        summary.append(f"- {file_path}: {stats['lines']} lines, {format_file_size(stats['size'])}")
-    
-    summary.append("")
-    summary.append("### Recently Modified Files")
-    recent_files = sorted(file_stats.items(), key=lambda x: x[1]['modified'], reverse=True)[:10]
-    for file_path, stats in recent_files:
-        mod_time = datetime.fromtimestamp(stats['modified']).strftime("%Y-%m-%d %H:%M")
-        summary.append(f"- {file_path}: {mod_time}")
+    tree = build_tree(file_stats, target_dir)
+    tree_lines = generate_tree_lines(tree)
+    summary.extend(tree_lines)
     
     return "\n".join(summary)
 
 def chunk_output(content, max_tokens=4000, overlap=200):
-    """
-    Split content into chunks of approximately max_tokens with some overlap.
-    
-    Args:
-        content: The full content string to split
-        max_tokens: Maximum tokens per chunk (approximated as characters/4)
-        overlap: Number of tokens to overlap between chunks
-        
-    Returns:
-        A list of content chunks
-    """
+    """Split content into chunks with specified token size and overlap."""
     chars_per_token = 4
     max_chars = max_tokens * chars_per_token
     overlap_chars = overlap * chars_per_token
-    
     chunks = []
     start = 0
-    
     while start < len(content):
         end = min(start + max_chars, len(content))
         if end < len(content):
@@ -224,29 +188,10 @@ def chunk_output(content, max_tokens=4000, overlap=200):
             start = next_start + 1 if next_start != -1 else end
         else:
             break
-    
     return chunks
 
 def build_code_prompt(target_dir=".", output_dir=".", config=None):
-    """
-    Build code prompt using the provided configuration, including token count estimation.
-    
-    Args:
-        target_dir: Directory to scan for code files
-        output_dir: Directory to save the output file(s)
-        config: Configuration dictionary
-        
-    Returns:
-        Tuple containing:
-        - success: Boolean indicating if the operation was successful
-        - file_count: Number of files processed
-        - total_lines: Total number of lines processed
-        - total_size: Total size of processed files in bytes
-        - total_tokens: Estimated total token count from code content
-        - binary_count: Number of binary files skipped
-        - errors: List of error messages
-        - output_files: List of output file paths
-    """
+    """Build code prompt using filesystem only."""
     if config is None:
         config = load_config()
     
@@ -263,18 +208,13 @@ def build_code_prompt(target_dir=".", output_dir=".", config=None):
     file_count = 0
     total_lines = 0
     total_size = 0
-    total_chars = 0  # Added to track total characters for token estimation
+    total_chars = 0
     binary_count = 0
     file_stats = {}
     
     try:
         os.makedirs(output_dir, exist_ok=True)
-        
-        full_content = []
-        current_date = datetime.now().strftime("%Y-%m-%d %H:%M")
-        full_content.append(f"{folder_name} Code Export ({current_date})")
-        full_content.append("###")
-        
+        full_content = [f"{folder_name} Code Export ({datetime.now().strftime('%Y-%m-%d %H:%M')})", "###"]
         extensions = tuple(config["extensions"])
         
         for root, dirs, files in os.walk(target_dir):
@@ -289,16 +229,12 @@ def build_code_prompt(target_dir=".", output_dir=".", config=None):
                     if not is_in_focus:
                         continue
             
-            try:
-                project_files = sorted([
-                    f for f in files 
-                    if f.lower().endswith(extensions) and 
-                    not f.lower().endswith(tuple(f".min{e}" for e in extensions)) and 
-                    f not in exclude_files_set
-                ])
-            except TypeError as e:
-                errors.append(f"Error processing directory '{root}': Invalid extension type ({str(e)}).")
-                continue
+            project_files = sorted([
+                f for f in files 
+                if f.lower().endswith(extensions) and 
+                not f.lower().endswith(tuple(f".min{e}" for e in extensions)) and 
+                os.path.relpath(os.path.join(root, f), target_dir) not in exclude_files_set
+            ])
             
             for filename in project_files:
                 file_path = os.path.join(root, filename)
@@ -309,39 +245,28 @@ def build_code_prompt(target_dir=".", output_dir=".", config=None):
                     binary_count += 1
                     continue
                 
-                file_count += 1
-                
                 try:
                     with open(file_path, 'r', encoding='utf-8') as infile:
                         content = infile.read()
-                        total_chars += len(content)  # Accumulate character count
                         line_count = len(content.splitlines())
-                        total_lines += line_count
                         file_size = os.path.getsize(file_path)
+                        mod_time = datetime.fromtimestamp(os.path.getmtime(file_path)).strftime("%Y-%m-%d %H:%M")
+                        
+                        file_count += 1
+                        total_lines += line_count
                         total_size += file_size
-                    
-                    file_stats[relative_path] = {
-                        'lines': line_count,
-                        'size': file_size,
-                        'modified': os.path.getmtime(file_path)
-                    }
-                    
-                    formatted_size = format_file_size(file_size)
-                    mod_time = datetime.fromtimestamp(os.path.getmtime(file_path)).strftime("%Y-%m-%d %H:%M")
-                    full_content.append(f"{display_path} ({line_count}L, {formatted_size}, Mod: {mod_time})")
-                    full_content.append(content)
-                    full_content.append("###")
-                except PermissionError:
-                    errors.append(f"{file_path}: No permission to read file.")
-                except UnicodeDecodeError:
-                    errors.append(f"{file_path}: File is not UTF-8 encoded.")
-                    binary_count += 1
-                except (OSError, ValueError) as e:
-                    errors.append(f"{file_path}: Failed to process ({str(e)}).")
+                        total_chars += len(content)
+                        
+                        full_content.append(f"{display_path} ({line_count}L, {format_file_size(file_size)}, Mod: {mod_time})")
+                        full_content.append(content)
+                        full_content.append("###")
+                        file_stats[relative_path] = {'lines': line_count, 'size': file_size, 'modified': mod_time}
+                except (PermissionError, UnicodeDecodeError, OSError) as e:
+                    errors.append(f"{file_path}: Failed to process ({str(e)})")
+                    if isinstance(e, UnicodeDecodeError):
+                        binary_count += 1
         
-        # Calculate estimated token count (1 token ≈ 4 characters)
         total_tokens = total_chars // 4
-        
         summary = f"Files: {file_count}, Lines: {total_lines}, Size: {format_file_size(total_size)}"
         if binary_count > 0:
             summary += f" (Skipped {binary_count} binary files)"
@@ -349,21 +274,19 @@ def build_code_prompt(target_dir=".", output_dir=".", config=None):
         
         if errors:
             full_content.append("\nErrors:")
-            for error in errors:
-                full_content.append(f"- {error}")
-        
+            full_content.extend(f"- {error}" for error in errors)
         full_content.append("END")
         
         content_str = "\n".join(full_content)
+        output_files = []
         
         if config.get("include_summary", True) and file_count > 0:
-            project_summary = generate_project_summary(file_stats, target_dir, total_size, total_tokens, binary_count)
+            project_summary = generate_project_summary(file_stats, target_dir, total_size, 
+                                                      total_tokens, binary_count)
             summary_pos = content_str.find("\n###\n") + 5
             content_str = content_str[:summary_pos] + project_summary + "\n\n###\n" + content_str[summary_pos:]
         
-        output_files = []
         chunk_size = config.get("chunk_size")
-        
         if chunk_size and chunk_size > 0:
             chunks = chunk_output(content_str, max_tokens=chunk_size)
             for i, chunk in enumerate(chunks):
@@ -377,63 +300,52 @@ def build_code_prompt(target_dir=".", output_dir=".", config=None):
             output_files.append(output_file)
         
         return True, file_count, total_lines, total_size, total_tokens, binary_count, errors, output_files
-        
-    except PermissionError:
-        print(f"Error: No permission to write '{output_file}'. Aborting.")
-        return False, file_count, total_lines, total_size, total_tokens, binary_count, errors + [f"No permission to write '{output_file}'"], []
-    except OSError as e:
-        print(f"Error: Failed to write '{output_file}' ({str(e)}). Aborting.")
-        return False, file_count, total_lines, total_size, total_tokens, binary_count, errors + [f"Failed to write '{output_file}' ({str(e)})"], []
-    except Exception as e:
-        print(f"Critical error during file collection: {str(e)}. Aborting.")
-        return False, file_count, total_lines, total_size, total_tokens, binary_count, errors + [f"Critical error: {str(e)}"], []
+    
+    except (PermissionError, OSError) as e:
+        errors.append(f"Failed to write '{output_file}': {str(e)}")
+        print(f"Error: {str(e)}")
+        return False, file_count, total_lines, total_size, total_chars // 4, binary_count, errors, []
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build a code prompt from project files.")
-    parser.add_argument("--target-dir", default=".", help="Directory to scan for code files (default: current directory)")
-    parser.add_argument("--output-dir", default=".", help="Directory to save the output file (default: current directory)")
-    parser.add_argument("--exclude-dir", action="append", dest="exclude_dirs", default=[], 
-                        help="Additional directory to exclude (can be used multiple times)")
-    parser.add_argument("--exclude-file", action="append", dest="exclude_files", default=[], 
+    parser.add_argument("-t", "--target-dir", default=".", 
+                        help="Directory to scan for code files (default: current directory)")
+    parser.add_argument("-o", "--output-dir", default=".", 
+                        help="Directory to save the output file (default: current directory)")
+    parser.add_argument("-e", "--exclude-file", action="append", dest="exclude_files", default=[], 
                         help="Additional file to exclude (can be used multiple times)")
-    parser.add_argument("--no-default-excludes", action="store_true", 
-                        help="Ignore default exclude dirs/files from config and only use command line excludes")
-    parser.add_argument("--extensions", nargs="+", default=None,
-                        help="File extensions to include (overrides config file)")
-    parser.add_argument("--focus-dir", action="append", dest="focus_dirs", default=[],
+    parser.add_argument("-d", "--exclude-dir", action="append", dest="exclude_dirs", default=[], 
+                        help="Additional directory to exclude (can be used multiple times)")
+    parser.add_argument("-f", "--focus-dir", action="append", dest="focus_dirs", default=[], 
                         help="Only process files in these directories (can be used multiple times)")
-    parser.add_argument("--chunk-size", type=int, default=None,
-                        help="Maximum token size for each output chunk (approximately)")
+    parser.add_argument("--no-default-excludes", action="store_true", 
+                        help="Ignore default excludes and use only command-line excludes")
+    parser.add_argument("--extensions", nargs="+", default=None, 
+                        help="File extensions to include (overrides config file)")
+    parser.add_argument("-c", "--chunk-size", type=int, default=None, 
+                        help="Maximum token size for each output chunk")
     parser.add_argument("--no-summary", action="store_true", 
-                        help="Disable project summary generation (enabled by default)")
+                        help="Disable project summary generation")
     
     args = parser.parse_args()
-    
-    target_dir_abs = os.path.abspath(args.target_dir)
     config = load_config()
     merged_config = merge_config_with_args(config, args)
     
     print("Building code prompt...")
     success, file_count, total_lines, total_size, total_tokens, binary_count, errors, output_files = build_code_prompt(
-        target_dir=args.target_dir,
-        output_dir=args.output_dir,
-        config=merged_config
-    )
+        target_dir=args.target_dir, output_dir=args.output_dir, config=merged_config)
     
     if success:
         formatted_size = format_file_size(total_size)
         binary_msg = f" (Skipped {binary_count} binary files)" if binary_count > 0 else ""
-        
-        if not errors:
-            print(f"Done! Successfully processed {file_count} files with {total_lines} lines, {total_tokens:,} estimated tokens ({formatted_size}) from '{target_dir_abs}'{binary_msg}.")
-            if len(output_files) > 1:
-                print(f"Output was split into {len(output_files)} files:")
-                for file in output_files:
-                    print(f"- {os.path.abspath(file)}")
-            else:
-                print(f"Output written to '{os.path.abspath(output_files[0])}'.")
-        else:
-            print(f"Completed with warnings! Processed {file_count} files with {total_lines} lines, {total_tokens:,} estimated tokens ({formatted_size}) from '{target_dir_abs}'{binary_msg}.")
-            print(f"Encountered {len(errors)} errors. See output file(s) for details.")
+        msg = (f"Done! Processed {file_count} files with {total_lines} lines, "
+               f"{total_tokens:,} tokens ({formatted_size}) from '{os.path.abspath(args.target_dir)}'{binary_msg}.")
+        if errors:
+            msg = f"Completed with warnings! {msg} See {len(errors)} errors in output."
+        print(msg)
+        if len(output_files) > 1:
+            print(f"Output split into {len(output_files)} files:")
+        for file in output_files:
+            print(f"- {os.path.abspath(file)}")
     else:
-        print(f"Failed to complete the code prompt generation. Encountered {len(errors)} errors.")
+        print(f"Failed with {len(errors)} errors. Check output or logs.")
