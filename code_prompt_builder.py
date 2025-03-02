@@ -190,15 +190,26 @@ def chunk_output(content, max_tokens=4000, overlap=200):
             break
     return chunks
 
-def build_code_prompt(target_dir=".", output_dir=".", config=None):
-    """Build code prompt using filesystem only."""
+def build_code_prompt(target_dir=".", output_dir=".", config=None, single_file=None):
+    """Build code prompt using filesystem only, with optional single-file processing."""
     if config is None:
         config = load_config()
     
     target_dir = os.path.abspath(target_dir)
     folder_name = os.path.basename(target_dir)
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M")
-    output_file = os.path.join(output_dir, f"{folder_name}-code-prompt-{timestamp}.txt")
+    
+    # Set output file name based on whether single_file is specified
+    if single_file:
+        # Normalize single_file by removing leading './' or '.\'
+        base_name = single_file.strip()
+        if base_name.startswith('./') or base_name.startswith('.\\'):
+            base_name = base_name[2:]
+        base_name = base_name.replace(os.sep, "_")
+        base_name = os.path.splitext(base_name)[0]
+        output_file = os.path.join(output_dir, f"{base_name}-code-prompt-{timestamp}.txt")
+    else:
+        output_file = os.path.join(output_dir, f"{folder_name}-code-prompt-{timestamp}.txt")
     
     exclude_dirs_set = set(config["exclude_dirs"])
     exclude_files_set = set(config["exclude_files"])
@@ -217,54 +228,75 @@ def build_code_prompt(target_dir=".", output_dir=".", config=None):
         full_content = [f"{folder_name} Code Export ({datetime.now().strftime('%Y-%m-%d %H:%M')})", "###"]
         extensions = tuple(config["extensions"])
         
-        for root, dirs, files in os.walk(target_dir):
-            dirs[:] = [d for d in dirs if d not in exclude_dirs_set]
-            if focus_dirs_set:
-                rel_path = os.path.relpath(root, target_dir)
-                if rel_path != '.':
-                    is_in_focus = any(fd == rel_path or 
-                                     rel_path.startswith(fd + os.sep) or 
-                                     fd.startswith(rel_path + os.sep) 
-                                     for fd in focus_dirs_set)
-                    if not is_in_focus:
-                        continue
-            
-            project_files = sorted([
-                f for f in files 
-                if f.lower().endswith(extensions) and 
-                not f.lower().endswith(tuple(f".min{e}" for e in extensions)) and 
-                os.path.relpath(os.path.join(root, f), target_dir) not in exclude_files_set
-            ])
-            
-            for filename in project_files:
-                file_path = os.path.join(root, filename)
+        # Determine files to process
+        if single_file:
+            file_path = os.path.abspath(os.path.join(target_dir, single_file))
+            if not os.path.exists(file_path):
+                print(f"Error: Path '{file_path}' does not exist.")
+                return False, 0, 0, 0, 0, 0, [f"Path '{file_path}' does not exist."], []
+            if not os.path.isfile(file_path):
+                print(f"Error: '{file_path}' is not a file.")
+                return False, 0, 0, 0, 0, 0, [f"'{file_path}' is not a file."], []
+            files_to_process = [file_path]
+        else:
+            files_to_process = []
+            for root, dirs, files in os.walk(target_dir):
+                dirs[:] = [d for d in dirs if d not in exclude_dirs_set]
+                if focus_dirs_set:
+                    rel_path = os.path.relpath(root, target_dir)
+                    if rel_path != '.':
+                        is_in_focus = any(fd == rel_path or 
+                                         rel_path.startswith(fd + os.sep) or 
+                                         fd.startswith(rel_path + os.sep) 
+                                         for fd in focus_dirs_set)
+                        if not is_in_focus:
+                            continue
+                project_files = sorted([
+                    f for f in files 
+                    if f.lower().endswith(extensions) and 
+                    not f.lower().endswith(tuple(f".min{e}" for e in extensions)) and 
+                    os.path.relpath(os.path.join(root, f), target_dir) not in exclude_files_set
+                ])
+                for filename in project_files:
+                    file_path = os.path.join(root, filename)
+                    files_to_process.append(file_path)
+        
+        # Process each file
+        for file_path in files_to_process:
+            try:
                 relative_path = os.path.relpath(file_path, target_dir)
-                display_path = os.path.join(folder_name, relative_path)
-                
-                if is_binary_file(file_path):
+                if relative_path.startswith('..' + os.sep):
+                    display_path = file_path  # Use full path if outside target_dir
+                else:
+                    display_path = os.path.join(folder_name, relative_path)  # Use relative path if inside
+            except ValueError:
+                display_path = file_path  # Use full path for edge cases (e.g., different drives on Windows)
+            
+            if is_binary_file(file_path):
+                binary_count += 1
+                errors.append(f"{file_path}: Skipped (binary file)")
+                continue
+            
+            try:
+                with open(file_path, 'r', encoding='utf-8') as infile:
+                    content = infile.read()
+                    line_count = len(content.splitlines())
+                    file_size = os.path.getsize(file_path)
+                    mod_time = datetime.fromtimestamp(os.path.getmtime(file_path)).strftime("%Y-%m-%d %H:%M")
+                    
+                    file_count += 1
+                    total_lines += line_count
+                    total_size += file_size
+                    total_chars += len(content)
+                    
+                    full_content.append(f"{display_path} ({line_count}L, {format_file_size(file_size)}, Mod: {mod_time})")
+                    full_content.append(content)
+                    full_content.append("###")
+                    file_stats[relative_path] = {'lines': line_count, 'size': file_size, 'modified': mod_time}
+            except (PermissionError, UnicodeDecodeError, OSError) as e:
+                errors.append(f"{file_path}: Failed to process ({str(e)})")
+                if isinstance(e, UnicodeDecodeError):
                     binary_count += 1
-                    continue
-                
-                try:
-                    with open(file_path, 'r', encoding='utf-8') as infile:
-                        content = infile.read()
-                        line_count = len(content.splitlines())
-                        file_size = os.path.getsize(file_path)
-                        mod_time = datetime.fromtimestamp(os.path.getmtime(file_path)).strftime("%Y-%m-%d %H:%M")
-                        
-                        file_count += 1
-                        total_lines += line_count
-                        total_size += file_size
-                        total_chars += len(content)
-                        
-                        full_content.append(f"{display_path} ({line_count}L, {format_file_size(file_size)}, Mod: {mod_time})")
-                        full_content.append(content)
-                        full_content.append("###")
-                        file_stats[relative_path] = {'lines': line_count, 'size': file_size, 'modified': mod_time}
-                except (PermissionError, UnicodeDecodeError, OSError) as e:
-                    errors.append(f"{file_path}: Failed to process ({str(e)})")
-                    if isinstance(e, UnicodeDecodeError):
-                        binary_count += 1
         
         total_tokens = total_chars // 4
         summary = f"Files: {file_count}, Lines: {total_lines}, Size: {format_file_size(total_size)}"
@@ -326,6 +358,8 @@ if __name__ == "__main__":
                         help="Maximum token size for each output chunk")
     parser.add_argument("--no-summary", action="store_true", 
                         help="Disable project summary generation")
+    parser.add_argument("-s", "--single-file", 
+                        help="Process only this single file")
     
     args = parser.parse_args()
     config = load_config()
@@ -333,7 +367,7 @@ if __name__ == "__main__":
     
     print("Building code prompt...")
     success, file_count, total_lines, total_size, total_tokens, binary_count, errors, output_files = build_code_prompt(
-        target_dir=args.target_dir, output_dir=args.output_dir, config=merged_config)
+        target_dir=args.target_dir, output_dir=args.output_dir, config=merged_config, single_file=args.single_file)
     
     if success:
         formatted_size = format_file_size(total_size)

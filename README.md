@@ -11,6 +11,7 @@ A Python script that builds consolidated code prompts from your development file
 * Splits large codebases into manageable chunks for LLM token limits
 * Handles file path variations for exclusions (e.g., ".\file.txt" and ".\folder\file.txt")
 * Provides abbreviated command options for faster workflow
+* Supports processing a single file instead of a whole directory
 
 ## Usage
 Run the script in your project directory:
@@ -25,12 +26,18 @@ To analyze a specific project and save to a custom location:
 python code_prompt_builder.py --target-dir "../my_project" --output-dir "./exports"
 ```
 
+To process a single file:
+```bash
+python code_prompt_builder.py --single-file "path/to/my_file.py"
+```
+
 ## Command-line Arguments
 
 ### Basic Options
 - `--target-dir <path>` or `-t <path>`: Directory to scan for code files (default: current directory)
 - `--output-dir <path>` or `-o <path>`: Directory to save the output file (default: current directory)
 - `--extensions <ext1> <ext2> ...`: File extensions to include (default: .html, .css, .js, .py, .md, .json)
+- `--single-file <path>` or `-s <path>`: Process only a single specified file instead of a directory
 
 ### Inclusion/Exclusion Options
 - `--exclude-dir <dirname>` or `-d <dirname>`: Additional directory to exclude (can be used multiple times)
@@ -57,8 +64,14 @@ python code_prompt_builder.py --focus-dir "src/components" --focus-dir "src/util
 # Generate smaller chunks for large projects (approx. 4000 tokens each)
 python code_prompt_builder.py --chunk-size 4000
 
+# Process only a single file (output will be named based on the file name)
+python code_prompt_builder.py --single-file "path/to/my_file.py"
+
 # Use abbreviated options
 python code_prompt_builder.py -t "../project" -o "./output" -d "node_modules" -e "config.json"
+
+# Process a single file with abbreviated options
+python code_prompt_builder.py -s "app.py" -o "./exports"
 ```
 
 ## Default Configuration
